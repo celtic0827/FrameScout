@@ -1,0 +1,5 @@
+{
+  "name": "FrameScout",
+  "description": "A professional dark-themed tool to extract high-quality preview images from videos and export them as a ZIP archive.",
+  "requestFramePermissions": []
+}

@@ -1,11 +1,18 @@
-<div align="center">
+# FrameScout
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+FrameScout 是一個專業的網頁端影片截圖工具，專為快速提取高品質預覽圖而設計。
 
-  <h1>Built with AI Studio</h2>
+## 主要功能
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+*   **智能截圖**：自動從影片中均勻提取指定數量的畫面。
+*   **參數控制**：可自定義截取張數 (1-50 張) 與解析度縮放比例 (10-100%)。
+*   **Smart Shuffle**：可選隨機微調功能，避免截取到完全重複的幀。
+*   **ZIP 打包**：一鍵將所有預覽圖打包下載，無需逐張儲存。
+*   **隱私安全**：所有處理皆在瀏覽器端本地完成，影片無需上傳至伺服器。
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## 技術棧
 
-</div>
+*   React 19
+*   TypeScript
+*   Tailwind CSS
+*   JSZip / FileSaver
