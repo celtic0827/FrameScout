@@ -1,16 +1,16 @@
 # FrameScout
 
-FrameScout 是一個專業的網頁端影片截圖工具，專為快速提取高品質預覽圖而設計。
+FrameScout is a professional web-based tool designed to quickly extract high-quality preview images from videos.
 
-## 主要功能
+## Key Features
 
-*   **智能截圖**：自動從影片中均勻提取指定數量的畫面。
-*   **參數控制**：可自定義截取張數 (1-50 張) 與解析度縮放比例 (10-100%)。
-*   **Smart Shuffle**：可選隨機微調功能，避免截取到完全重複的幀。
-*   **ZIP 打包**：一鍵將所有預覽圖打包下載，無需逐張儲存。
-*   **隱私安全**：所有處理皆在瀏覽器端本地完成，影片無需上傳至伺服器。
+*   **Smart Extraction**: Automatically extracts frames evenly distributed across the video timeline.
+*   **Customizable Settings**: Adjust frame count (1-50) and resolution scale (10-100%) to suit your needs.
+*   **Smart Shuffle**: Optional random jitter feature to avoid capturing identical frames.
+*   **ZIP Export**: Download all extracted previews as a single ZIP archive with one click.
+*   **Privacy First**: All processing is performed locally in your browser. Your videos are never uploaded to any server.
 
-## 技術棧
+## Tech Stack
 
 *   React 19
 *   TypeScript
