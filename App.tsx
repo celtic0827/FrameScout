@@ -120,9 +120,17 @@ function App() {
     }
   };
 
-  const handleDownloadZip = async () => {
+  const handleDownload = async () => {
     if (screenshots.length === 0) return;
 
+    // Direct download if only one image
+    if (screenshots.length === 1) {
+      const shot = screenshots[0];
+      saveAs(shot.blob, shot.fileName);
+      return;
+    }
+
+    // ZIP download if multiple images
     setStatus(ProcessingStatus.ZIPPING);
     const zip = new JSZip();
     
@@ -340,7 +348,7 @@ function App() {
                     <p className="text-gray-500 text-xs truncate">{screenshots.length} image{screenshots.length !== 1 && 's'} ready</p>
                   </div>
                   <button
-                    onClick={handleDownloadZip}
+                    onClick={handleDownload}
                     disabled={status === ProcessingStatus.ZIPPING}
                     className="flex-shrink-0 bg-white text-gray-900 hover:bg-gray-100 font-semibold px-4 py-2 rounded-lg shadow-lg transition-all flex items-center gap-2 text-xs"
                   >
@@ -351,7 +359,7 @@ function App() {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                           <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                         </svg>
-                        Download ZIP
+                        {screenshots.length === 1 ? 'Download Image' : 'Download ZIP'}
                       </>
                     )}
                   </button>
