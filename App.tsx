@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import JSZip from 'jszip';
 import saveAs from 'file-saver';
 import { ProcessingStatus, Screenshot, VideoMetadata } from './types';
-import { extractFrames, loadVideo } from './utils/videoUtils';
+import { extractFrames, extractSpecificFrame, loadVideo } from './utils/videoUtils';
 import VideoUploader from './components/VideoUploader';
 import SettingsControls from './components/SettingsControls';
 import Gallery from './components/Gallery';
@@ -20,6 +20,8 @@ const getSavedSetting = <T,>(key: string, defaultValue: T): T => {
   return defaultValue;
 };
 
+type AppMode = 'batch' | 'last-frame';
+
 function App() {
   const [file, setFile] = useState<File | null>(null);
   const [metadata, setMetadata] = useState<VideoMetadata | null>(null);
@@ -27,6 +29,9 @@ function App() {
   const [progress, setProgress] = useState<number>(0);
   const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  
+  // App Mode State
+  const [mode, setMode] = useState<AppMode>('batch');
 
   // Settings with LocalStorage persistence initialization
   const [count, setCount] = useState<number>(() => getSavedSetting('fs_count', 12));
@@ -64,7 +69,15 @@ function App() {
     }
   };
 
-  const handleStartExtraction = async () => {
+  const handleModeChange = (newMode: AppMode) => {
+    if (mode === newMode) return;
+    setMode(newMode);
+    setScreenshots([]); // Clear results on mode switch to avoid confusion
+    setErrorMsg(null);
+    setStatus(ProcessingStatus.IDLE);
+  };
+
+  const handleProcess = async () => {
     if (!file) return;
 
     setStatus(ProcessingStatus.EXTRACTING);
@@ -76,11 +89,24 @@ function App() {
       // Re-load video element specifically for extraction to ensure fresh state
       const { video } = await loadVideo(file);
       
-      const frames = await extractFrames(video, count, randomize, scale, (pct) => {
-        setProgress(pct);
-      });
+      if (mode === 'batch') {
+        const frames = await extractFrames(video, count, randomize, scale, (pct) => {
+          setProgress(pct);
+        });
+        setScreenshots(frames);
+      } else {
+        // Last Frame Mode
+        // We use duration - 0.1s to ensure we get a valid frame and not the black end
+        const targetTime = Math.max(0, video.duration - 0.1); 
+        const frame = await extractSpecificFrame(video, targetTime, scale);
+        setProgress(100);
+        if (frame) {
+          setScreenshots([frame]);
+        } else {
+          setErrorMsg("Could not extract the last frame.");
+        }
+      }
       
-      setScreenshots(frames);
       setStatus(ProcessingStatus.COMPLETED);
       
       // Cleanup the video element source
@@ -99,7 +125,6 @@ function App() {
 
     setStatus(ProcessingStatus.ZIPPING);
     const zip = new JSZip();
-    // Removed folder nesting: files are now added to root
     
     screenshots.forEach((shot) => {
       zip.file(shot.fileName, shot.blob);
@@ -107,7 +132,8 @@ function App() {
 
     try {
       const content = await zip.generateAsync({ type: "blob" });
-      const zipName = metadata ? `${metadata.filename.split('.')[0]}_preview.zip` : 'frame_scout_previews.zip';
+      const suffix = mode === 'batch' ? 'previews' : 'last_frame';
+      const zipName = metadata ? `${metadata.filename.split('.')[0]}_${suffix}.zip` : `frame_scout_${suffix}.zip`;
       saveAs(content, zipName);
       setStatus(ProcessingStatus.COMPLETED);
     } catch (err) {
@@ -157,9 +183,6 @@ function App() {
                 Frame<span className="text-indigo-400">Scout</span>
               </span>
             </div>
-            <div>
-               {/* Optional Header Actions */}
-            </div>
           </div>
         </div>
       </nav>
@@ -182,9 +205,37 @@ function App() {
               </p>
             </div>
 
+            {/* Mode Tab Switcher */}
+            <div className="flex p-1 bg-gray-900 rounded-lg mb-6 border border-gray-800">
+              <button
+                onClick={() => !isProcessing && handleModeChange('batch')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all duration-200 ${
+                  mode === 'batch' 
+                    ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700' 
+                    : 'text-gray-500 hover:text-gray-300'
+                } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
+                disabled={isProcessing}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                Batch Extract
+              </button>
+              <button
+                onClick={() => !isProcessing && handleModeChange('last-frame')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all duration-200 ${
+                  mode === 'last-frame' 
+                    ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700' 
+                    : 'text-gray-500 hover:text-gray-300'
+                } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
+                disabled={isProcessing}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 12-7-7v14z"/><path d="M3 5v14"/><path d="M7 5v14"/></svg>
+                Last Frame
+              </button>
+            </div>
+
             {/* Error Banner */}
             {errorMsg && (
-              <div className="bg-red-900/10 border border-red-900/30 text-red-300 px-4 py-3 rounded-lg mb-5 flex items-center gap-3 text-sm">
+              <div className="bg-red-900/10 border border-red-900/30 text-red-300 px-4 py-3 rounded-lg mb-5 flex items-center gap-3 text-sm animate-in fade-in duration-300">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
@@ -228,7 +279,7 @@ function App() {
                   </div>
 
                   <button
-                    onClick={handleStartExtraction}
+                    onClick={handleProcess}
                     disabled={isProcessing}
                     className={`
                       w-full py-2.5 rounded-lg font-semibold text-sm shadow-lg shadow-indigo-500/10
@@ -246,11 +297,17 @@ function App() {
                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                          </svg>
-                         {status === ProcessingStatus.EXTRACTING ? `Extracting ${progress}%` : 'Processing...'}
+                         {mode === 'batch' 
+                           ? (status === ProcessingStatus.EXTRACTING ? `Extracting ${progress}%` : 'Processing...')
+                           : 'Capturing...'
+                         }
                        </>
                     ) : (
                       <>
-                        {screenshots.length > 0 ? 'Regenerate' : 'Generate Previews'}
+                        {mode === 'batch' 
+                          ? (screenshots.length > 0 ? 'Regenerate Previews' : 'Generate Previews')
+                          : 'Capture Last Frame'
+                        }
                       </>
                     )}
                   </button>
@@ -266,6 +323,8 @@ function App() {
                 setScale={setScale}
                 disabled={isProcessing}
                 metadata={metadata}
+                hideCount={mode === 'last-frame'}
+                hideRandomize={mode === 'last-frame'}
               />
             </div>
           </div>
@@ -275,8 +334,10 @@ function App() {
             <div className="flex-shrink-0 p-4 border-t border-gray-800 bg-[#08080a]/90 backdrop-blur-md z-20">
                <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <h3 className="text-white font-medium text-sm truncate">Session Complete</h3>
-                    <p className="text-gray-500 text-xs truncate">{screenshots.length} images ready</p>
+                    <h3 className="text-white font-medium text-sm truncate">
+                       {mode === 'batch' ? 'Session Complete' : 'Frame Captured'}
+                    </h3>
+                    <p className="text-gray-500 text-xs truncate">{screenshots.length} image{screenshots.length !== 1 && 's'} ready</p>
                   </div>
                   <button
                     onClick={handleDownloadZip}
@@ -312,7 +373,9 @@ function App() {
                   </svg>
                 </div>
                 <p className="text-gray-500 font-medium">Waiting for content</p>
-                <p className="text-xs text-gray-600 mt-1">Import a video to begin extraction</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  {mode === 'batch' ? 'Import a video to begin batch extraction' : 'Import a video to capture the last frame'}
+                </p>
               </div>
             )}
           </div>

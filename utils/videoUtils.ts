@@ -29,6 +29,56 @@ export const loadVideo = (file: File): Promise<{ video: HTMLVideoElement; metada
   });
 };
 
+// Helper to capture a frame from video to blob
+const captureFrame = async (video: HTMLVideoElement, scale: number): Promise<{ blob: Blob | null, width: number, height: number }> => {
+  const canvas = document.createElement('canvas');
+  const scaleFactor = Math.max(0.1, Math.min(1, scale / 100));
+  canvas.width = Math.floor(video.videoWidth * scaleFactor);
+  canvas.height = Math.floor(video.videoHeight * scaleFactor);
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return { blob: null, width: 0, height: 0 };
+
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise<Blob | null>((resolve) => 
+    canvas.toBlob(resolve, 'image/jpeg', 0.85)
+  );
+  
+  return { blob, width: canvas.width, height: canvas.height };
+};
+
+export const extractSpecificFrame = async (
+  video: HTMLVideoElement,
+  time: number,
+  scale: number
+): Promise<Screenshot | null> => {
+  // Seek
+  video.currentTime = time;
+  await new Promise<void>((resolve) => {
+    const onSeeked = () => {
+      video.removeEventListener('seeked', onSeeked);
+      resolve();
+    };
+    video.addEventListener('seeked', onSeeked);
+  });
+
+  const { blob } = await captureFrame(video, scale);
+
+  if (blob) {
+    const url = URL.createObjectURL(blob);
+    const timestampStr = new Date(time * 1000).toISOString().substr(11, 8).replace(/:/g, '-');
+    return {
+      id: crypto.randomUUID(),
+      blob,
+      url,
+      timestamp: time,
+      fileName: `frame_last_${timestampStr}.jpg`
+    };
+  }
+  return null;
+};
+
 export const extractFrames = async (
   video: HTMLVideoElement,
   count: number,
@@ -39,18 +89,6 @@ export const extractFrames = async (
   const screenshots: Screenshot[] = [];
   const duration = video.duration;
   
-  // Create an off-screen canvas with scaled dimensions
-  const canvas = document.createElement('canvas');
-  const scaleFactor = Math.max(0.1, Math.min(1, scale / 100));
-  canvas.width = Math.floor(video.videoWidth * scaleFactor);
-  canvas.height = Math.floor(video.videoHeight * scaleFactor);
-  
-  const ctx = canvas.getContext('2d');
-
-  if (!ctx) {
-    throw new Error('Could not create 2D context');
-  }
-
   // Calculate timestamps
   const step = duration / (count + 1);
   const timestamps = Array.from({ length: count }, (_, i) => {
@@ -77,14 +115,7 @@ export const extractFrames = async (
       video.addEventListener('seeked', onSeeked);
     });
 
-    // Draw scaled image
-    // drawImage(image, dx, dy, dWidth, dHeight)
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Convert to Blob
-    const blob = await new Promise<Blob | null>((resolve) => 
-      canvas.toBlob(resolve, 'image/jpeg', 0.85)
-    );
+    const { blob } = await captureFrame(video, scale);
 
     if (blob) {
       const url = URL.createObjectURL(blob);
