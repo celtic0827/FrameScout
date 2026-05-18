@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import JSZip from 'jszip';
 import saveAs from 'file-saver';
 import { ProcessingStatus, Screenshot, VideoMetadata } from './types';
-import { extractFrames, extractSpecificFrame, loadVideo } from './utils/videoUtils';
+import { extractFrames, extractSpecificFrame, loadVideo, mergeImagesToStrip } from './utils/videoUtils';
 import VideoUploader from './components/VideoUploader';
 import SettingsControls from './components/SettingsControls';
 import Gallery from './components/Gallery';
@@ -147,6 +147,27 @@ function App() {
     } catch (err) {
       console.error(err);
       setErrorMsg('Failed to create zip file.');
+      setStatus(ProcessingStatus.ERROR);
+    }
+  };
+
+  const handleMergeDownload = async () => {
+    if (screenshots.length < 2) return;
+
+    setStatus(ProcessingStatus.MERGING);
+    try {
+      const blob = await mergeImagesToStrip(screenshots);
+      if (blob) {
+        const name = metadata ? `${metadata.filename.split('.')[0]}_strip.jpg` : `frame_scout_strip.jpg`;
+        saveAs(blob, name);
+        setStatus(ProcessingStatus.COMPLETED);
+      } else {
+        setErrorMsg('Failed to merge images.');
+        setStatus(ProcessingStatus.ERROR);
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Error during image merging.');
       setStatus(ProcessingStatus.ERROR);
     }
   };
@@ -347,22 +368,44 @@ function App() {
                     </h3>
                     <p className="text-gray-500 text-xs truncate">{screenshots.length} image{screenshots.length !== 1 && 's'} ready</p>
                   </div>
-                  <button
-                    onClick={handleDownload}
-                    disabled={status === ProcessingStatus.ZIPPING}
-                    className="flex-shrink-0 bg-white text-gray-900 hover:bg-gray-100 font-semibold px-4 py-2 rounded-lg shadow-lg transition-all flex items-center gap-2 text-xs"
-                  >
-                    {status === ProcessingStatus.ZIPPING ? (
-                      <span className="animate-pulse">Archiving...</span>
-                    ) : (
-                      <>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                        {screenshots.length === 1 ? 'Download Image' : 'Download ZIP'}
-                      </>
+                  <div className="flex items-center gap-2">
+                    {screenshots.length >= 2 && (
+                      <button
+                        onClick={handleMergeDownload}
+                        disabled={status === ProcessingStatus.MERGING || status === ProcessingStatus.ZIPPING}
+                        className="flex-shrink-0 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-xs disabled:opacity-50"
+                      >
+                        {status === ProcessingStatus.MERGING ? (
+                          <span className="animate-pulse">Merging...</span>
+                        ) : (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="7" width="20" height="10" rx="2" />
+                              <line x1="8" y1="7" x2="8" y2="17" />
+                              <line x1="16" y1="7" x2="16" y2="17" />
+                            </svg>
+                            Merge Strip
+                          </>
+                        )}
+                      </button>
                     )}
-                  </button>
+                    <button
+                      onClick={handleDownload}
+                      disabled={status === ProcessingStatus.ZIPPING || status === ProcessingStatus.MERGING}
+                      className="flex-shrink-0 bg-white text-gray-900 hover:bg-gray-100 font-semibold px-4 py-2 rounded-lg shadow-lg transition-all flex items-center gap-2 text-xs disabled:opacity-50"
+                    >
+                      {status === ProcessingStatus.ZIPPING ? (
+                        <span className="animate-pulse">Archiving...</span>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                          {screenshots.length === 1 ? 'Download Image' : 'Download ZIP'}
+                        </>
+                      )}
+                    </button>
+                  </div>
                </div>
             </div>
           )}

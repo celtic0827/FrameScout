@@ -138,6 +138,48 @@ export const extractFrames = async (
   return screenshots;
 };
 
+export const mergeImagesToStrip = async (screenshots: Screenshot[]): Promise<Blob | null> => {
+  if (screenshots.length === 0) return null;
+
+  try {
+    const images = await Promise.all(
+      screenshots.map((s) => {
+        return new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('Failed to load image for merging'));
+          img.src = s.url;
+        });
+      })
+    );
+
+    const totalWidth = images.reduce((sum, img) => sum + img.width, 0);
+    const maxHeight = Math.max(...images.map((img) => img.height));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = totalWidth;
+    canvas.height = maxHeight;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    // Fill white background just in case
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    let currentX = 0;
+    for (const img of images) {
+      ctx.drawImage(img, currentX, 0);
+      currentX += img.width;
+    }
+
+    return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+  } catch (error) {
+    console.error('Error merging images:', error);
+    return null;
+  }
+};
+
 export const formatTime = (seconds: number): string => {
   const date = new Date(0);
   date.setSeconds(seconds);
