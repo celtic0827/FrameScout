@@ -29,6 +29,7 @@ function App() {
   const [progress, setProgress] = useState<number>(0);
   const [screenshots, setScreenshots] = useState<Screenshot[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
   
   // App Mode State
   const [mode, setMode] = useState<AppMode>('batch');
@@ -161,6 +162,35 @@ function App() {
         const name = metadata ? `${metadata.filename.split('.')[0]}_strip.jpg` : `frame_scout_strip.jpg`;
         saveAs(blob, name);
         setStatus(ProcessingStatus.COMPLETED);
+      } else {
+        setErrorMsg('Failed to merge images.');
+        setStatus(ProcessingStatus.ERROR);
+      }
+    } catch (err) {
+      console.error(err);
+      setErrorMsg('Error during image merging.');
+      setStatus(ProcessingStatus.ERROR);
+    }
+  };
+
+  const handleMergeCopy = async () => {
+    if (screenshots.length < 2) return;
+
+    setStatus(ProcessingStatus.MERGING);
+    try {
+      const blob = await mergeImagesToStrip(screenshots);
+      if (blob) {
+        try {
+          const item = new ClipboardItem({ [blob.type]: blob });
+          await navigator.clipboard.write([item]);
+          setIsCopied(true);
+          setTimeout(() => setIsCopied(false), 2000);
+          setStatus(ProcessingStatus.COMPLETED);
+        } catch (clipErr) {
+          console.error('Clipboard error:', clipErr);
+          setErrorMsg('Failed to copy to clipboard. This browser may not support copying images.');
+          setStatus(ProcessingStatus.ERROR);
+        }
       } else {
         setErrorMsg('Failed to merge images.');
         setStatus(ProcessingStatus.ERROR);
@@ -370,24 +400,54 @@ function App() {
                   </div>
                   <div className="flex items-center gap-2">
                     {screenshots.length >= 2 && (
-                      <button
-                        onClick={handleMergeDownload}
-                        disabled={status === ProcessingStatus.MERGING || status === ProcessingStatus.ZIPPING}
-                        className="flex-shrink-0 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-xs disabled:opacity-50"
-                      >
-                        {status === ProcessingStatus.MERGING ? (
-                          <span className="animate-pulse">Merging...</span>
-                        ) : (
-                          <>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="2" y="7" width="20" height="10" rx="2" />
-                              <line x1="8" y1="7" x2="8" y2="17" />
-                              <line x1="16" y1="7" x2="16" y2="17" />
-                            </svg>
-                            Merge Strip
-                          </>
-                        )}
-                      </button>
+                      <>
+                        <button
+                          onClick={handleMergeCopy}
+                          disabled={status === ProcessingStatus.MERGING || status === ProcessingStatus.ZIPPING}
+                          className={`flex-shrink-0 font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-xs border disabled:opacity-50 ${
+                            isCopied 
+                              ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                              : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-indigo-500/20'
+                          }`}
+                        >
+                          {status === ProcessingStatus.MERGING ? (
+                            <span className="animate-pulse">Merging...</span>
+                          ) : isCopied ? (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                              </svg>
+                              Copy Strip
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={handleMergeDownload}
+                          disabled={status === ProcessingStatus.MERGING || status === ProcessingStatus.ZIPPING}
+                          className="flex-shrink-0 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-xs disabled:opacity-50"
+                        >
+                          {status === ProcessingStatus.MERGING ? (
+                            <span className="animate-pulse">Merging...</span>
+                          ) : (
+                            <>
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="2" y="7" width="20" height="10" rx="2" />
+                                <line x1="8" y1="7" x2="8" y2="17" />
+                                <line x1="16" y1="7" x2="16" y2="17" />
+                              </svg>
+                              Merge Strip
+                            </>
+                          )}
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={handleDownload}
