@@ -97,8 +97,9 @@ function App() {
         setScreenshots(frames);
       } else {
         // Last Frame Mode
-        // We use duration - 0.1s to ensure we get a valid frame and not the black end
-        const targetTime = Math.max(0, video.duration - 0.1); 
+        // We use a small offset of 0.015s (less than 1 frame at 60fps/30fps) to avoid the black end of the video
+        // while ensuring we capture the absolute last frame rather than the second-to-last frame.
+        const targetTime = Math.max(0, video.duration - 0.015); 
         const frame = await extractSpecificFrame(video, targetTime, scale);
         setProgress(100);
         if (frame) {
@@ -178,7 +179,7 @@ function App() {
 
     setStatus(ProcessingStatus.MERGING);
     try {
-      const blob = await mergeImagesToStrip(screenshots);
+      const blob = await mergeImagesToStrip(screenshots, 'image/png');
       if (blob) {
         try {
           const item = new ClipboardItem({ [blob.type]: blob });

@@ -138,7 +138,7 @@ export const extractFrames = async (
   return screenshots;
 };
 
-export const mergeImagesToStrip = async (screenshots: Screenshot[]): Promise<Blob | null> => {
+export const mergeImagesToStrip = async (screenshots: Screenshot[], type: string = 'image/jpeg'): Promise<Blob | null> => {
   if (screenshots.length === 0) return null;
 
   try {
@@ -173,7 +173,7 @@ export const mergeImagesToStrip = async (screenshots: Screenshot[]): Promise<Blo
       currentX += img.width;
     }
 
-    return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+    return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, type === 'image/jpeg' ? 0.9 : undefined));
   } catch (error) {
     console.error('Error merging images:', error);
     return null;
