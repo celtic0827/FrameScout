@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import JSZip from 'jszip';
 import saveAs from 'file-saver';
 import { ProcessingStatus, Screenshot, VideoMetadata } from './types';
@@ -6,6 +6,7 @@ import { extractFrames, extractSpecificFrame, loadVideo, mergeImagesToStrip } fr
 import VideoUploader from './components/VideoUploader';
 import SettingsControls from './components/SettingsControls';
 import Gallery from './components/Gallery';
+import StitchModal from './components/StitchModal';
 
 // Helper to load settings from LocalStorage
 const getSavedSetting = <T,>(key: string, defaultValue: T): T => {
@@ -34,6 +35,10 @@ function App() {
   // App Mode State
   const [mode, setMode] = useState<AppMode>('batch');
 
+  // Independent Selection State for Stitch Feature (Default: empty / 不要預設全選)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isStitchModalOpen, setIsStitchModalOpen] = useState<boolean>(false);
+
   // Settings with LocalStorage persistence initialization
   const [count, setCount] = useState<number>(() => getSavedSetting('fs_count', 12));
   const [randomize, setRandomize] = useState<boolean>(() => getSavedSetting('fs_randomize', false));
@@ -58,6 +63,7 @@ function App() {
     setStatus(ProcessingStatus.LOADING_VIDEO);
     setErrorMsg(null);
     setScreenshots([]);
+    setSelectedIds(new Set());
     
     try {
       const { metadata } = await loadVideo(selectedFile);
@@ -74,6 +80,7 @@ function App() {
     if (mode === newMode) return;
     setMode(newMode);
     setScreenshots([]); // Clear results on mode switch to avoid confusion
+    setSelectedIds(new Set());
     setErrorMsg(null);
     setStatus(ProcessingStatus.IDLE);
   };
@@ -84,6 +91,7 @@ function App() {
     setStatus(ProcessingStatus.EXTRACTING);
     setProgress(0);
     setScreenshots([]);
+    setSelectedIds(new Set()); // 不要預設全選，重設為空
     setErrorMsg(null);
 
     try {
@@ -95,10 +103,9 @@ function App() {
           setProgress(pct);
         });
         setScreenshots(frames);
+        // 保留原邏輯：不要預設全選，等待使用者主動勾選
       } else {
         // Last Frame Mode
-        // We use a small offset of 0.015s (less than 1 frame at 60fps/30fps) to avoid the black end of the video
-        // while ensuring we capture the absolute last frame rather than the second-to-last frame.
         const targetTime = Math.max(0, video.duration - 0.015); 
         const frame = await extractSpecificFrame(video, targetTime, scale);
         setProgress(100);
@@ -153,6 +160,7 @@ function App() {
     }
   };
 
+  // Original Merge Strip: merges screenshots directly without interfering
   const handleMergeDownload = async () => {
     if (screenshots.length < 2) return;
 
@@ -203,20 +211,53 @@ function App() {
     }
   };
 
+  const handleToggleSelect = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    setSelectedIds(new Set(screenshots.map(s => s.id)));
+  }, [screenshots]);
+
+  const handleDeselectAll = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
   const handleRemoveScreenshot = useCallback((id: string) => {
     setScreenshots(prev => prev.filter(s => s.id !== id));
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
   }, []);
 
   const handleReset = () => {
     setFile(null);
     setMetadata(null);
     setScreenshots([]);
+    setSelectedIds(new Set());
     setStatus(ProcessingStatus.IDLE);
     setErrorMsg(null);
     setProgress(0);
   };
 
   const isProcessing = status === ProcessingStatus.EXTRACTING || status === ProcessingStatus.ZIPPING || status === ProcessingStatus.LOADING_VIDEO;
+
+  // Selected screenshots for stitching modal
+  const selectedScreenshotsList = useMemo(() => {
+    return screenshots.filter(s => selectedIds.has(s.id));
+  }, [screenshots, selectedIds]);
+
+  const filePrefix = metadata ? metadata.filename.split('.')[0] : 'frame_scout';
 
   return (
     <div className="h-screen flex flex-col bg-[#050508] text-gray-200 font-sans selection:bg-indigo-500/30 selection:text-indigo-200 overflow-hidden">
@@ -226,7 +267,6 @@ function App() {
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-3">
-              {/* App Icon: Aperture / Shutter */}
               <div className="relative w-8 h-8 flex items-center justify-center">
                  <div className="absolute inset-0 bg-indigo-500/20 blur-lg rounded-full"></div>
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-400 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -242,6 +282,16 @@ function App() {
               <span className="text-lg font-bold tracking-tight text-white">
                 Frame<span className="text-indigo-400">Scout</span>
               </span>
+            </div>
+
+            <div className="flex items-center gap-4 text-xs text-gray-400">
+              {metadata && (
+                <div className="hidden sm:flex items-center gap-2 font-mono">
+                  <span>{metadata.width}×{metadata.height}</span>
+                  <span className="text-gray-600">/</span>
+                  <span>{metadata.duration.toFixed(1)}s</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -397,7 +447,12 @@ function App() {
                     <h3 className="text-white font-medium text-sm truncate">
                        {mode === 'batch' ? 'Session Complete' : 'Frame Captured'}
                     </h3>
-                    <p className="text-gray-500 text-xs truncate">{screenshots.length} image{screenshots.length !== 1 && 's'} ready</p>
+                    <p className="text-gray-500 text-xs truncate">
+                      {screenshots.length} image{screenshots.length !== 1 && 's'} ready
+                      {mode === 'batch' && selectedIds.size > 0 && (
+                        <span className="text-indigo-400 ml-1">· {selectedIds.size} selected</span>
+                      )}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {screenshots.length >= 2 && (
@@ -476,7 +531,16 @@ function App() {
         <main className="flex-1 overflow-y-auto bg-[#030304] p-6 lg:p-8 custom-scrollbar relative">
           <div className="max-w-7xl mx-auto h-full">
             {screenshots.length > 0 ? (
-               <Gallery screenshots={screenshots} onRemove={handleRemoveScreenshot} />
+               <Gallery 
+                 screenshots={screenshots} 
+                 onRemove={handleRemoveScreenshot}
+                 isBatchMode={mode === 'batch'}
+                 selectedIds={selectedIds}
+                 onToggleSelect={handleToggleSelect}
+                 onSelectAll={handleSelectAll}
+                 onDeselectAll={handleDeselectAll}
+                 onOpenStitchModal={() => setIsStitchModalOpen(true)}
+               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-gray-800/50 rounded-2xl bg-gray-900/10">
                 <div className="w-16 h-16 rounded-full bg-gray-900 flex items-center justify-center mb-4 border border-gray-800">
@@ -494,6 +558,16 @@ function App() {
         </main>
 
       </div>
+
+      {/* Frame Stitching Modal (Pure and isolated component) */}
+      {isStitchModalOpen && (
+        <StitchModal
+          isOpen={isStitchModalOpen}
+          onClose={() => setIsStitchModalOpen(false)}
+          selectedScreenshots={selectedScreenshotsList}
+          filenamePrefix={filePrefix}
+        />
+      )}
     </div>
   );
 }
