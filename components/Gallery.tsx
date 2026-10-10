@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Screenshot } from '../types';
 import { formatTime } from '../utils/videoUtils';
 import saveAs from 'file-saver';
@@ -14,6 +14,29 @@ interface GalleryProps {
   onOpenStitchModal?: () => void;
 }
 
+const convertUrlToPngBlob = (url: string): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width;
+      canvas.height = img.naturalHeight || img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Failed to get 2D canvas context'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Failed to create PNG blob'));
+      }, 'image/png');
+    };
+    img.onerror = () => reject(new Error('Failed to load image for copying'));
+    img.src = url;
+  });
+};
+
 const Gallery: React.FC<GalleryProps> = ({
   screenshots,
   onRemove,
@@ -24,11 +47,32 @@ const Gallery: React.FC<GalleryProps> = ({
   onDeselectAll,
   onOpenStitchModal,
 }) => {
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copyingId, setCopyingId] = useState<string | null>(null);
+
   if (screenshots.length === 0) return null;
 
   const totalSelected = selectedIds.size;
   const allSelected = screenshots.length > 0 && totalSelected === screenshots.length;
   const hasSelection = totalSelected > 0;
+
+  const handleCopyFrame = async (shot: Screenshot) => {
+    if (copyingId === shot.id) return;
+    setCopyingId(shot.id);
+    try {
+      const pngBlob = await convertUrlToPngBlob(shot.url);
+      const item = new ClipboardItem({ 'image/png': pngBlob });
+      await navigator.clipboard.write([item]);
+      setCopiedId(shot.id);
+      setTimeout(() => {
+        setCopiedId((prev) => (prev === shot.id ? null : prev));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy frame to clipboard:', err);
+    } finally {
+      setCopyingId((prev) => (prev === shot.id ? null : prev));
+    }
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -87,6 +131,9 @@ const Gallery: React.FC<GalleryProps> = ({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         {screenshots.map((shot, idx) => {
           const isSelected = selectedIds.has(shot.id);
+          const isCopied = copiedId === shot.id;
+          const isCopying = copyingId === shot.id;
+
           return (
             <div 
               key={shot.id} 
@@ -136,6 +183,18 @@ const Gallery: React.FC<GalleryProps> = ({
                   </span>
                 </div>
 
+                {/* Copied Toast Badge */}
+                {isCopied && (
+                  <div className="absolute bottom-2 left-2 z-20 pointer-events-none animate-in fade-in duration-150">
+                    <span className="text-[10px] font-medium text-emerald-300 bg-emerald-950/90 border border-emerald-500/40 px-2 py-0.5 rounded shadow-md flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                      Copied!
+                    </span>
+                  </div>
+                )}
+
                 {/* Frame Timestamp Badge */}
                 <div className="absolute bottom-2 right-2 pointer-events-none">
                   <span className="text-[10px] font-mono font-medium text-indigo-100 bg-black/60 backdrop-blur-sm px-1.5 py-0.5 rounded border border-white/10 shadow-sm">
@@ -158,6 +217,29 @@ const Gallery: React.FC<GalleryProps> = ({
                       <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
                     </svg>
                   </button>
+
+                  <button 
+                    onClick={() => handleCopyFrame(shot)}
+                    disabled={isCopying}
+                    className={`p-2 rounded-full text-white transition-all transform hover:scale-110 shadow-lg ${
+                      isCopied
+                        ? 'bg-emerald-600'
+                        : 'bg-gray-700/80 hover:bg-indigo-500'
+                    }`}
+                    title={isCopied ? 'Copied to Clipboard!' : 'Copy Image to Clipboard'}
+                  >
+                    {isCopied ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                    )}
+                  </button>
+
                   <button 
                     onClick={() => saveAs(shot.blob, shot.fileName)}
                     className="p-2 bg-gray-700/80 rounded-full hover:bg-emerald-600 text-white transition-all transform hover:scale-110 shadow-lg"
@@ -167,13 +249,14 @@ const Gallery: React.FC<GalleryProps> = ({
                       <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
+
                   <button 
                     onClick={() => onRemove(shot.id)}
                     className="p-2 bg-gray-700/80 rounded-full hover:bg-red-500 text-white transition-all transform hover:scale-110 shadow-lg"
                     title="Remove Frame"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                     </svg>
                   </button>
                 </div>
