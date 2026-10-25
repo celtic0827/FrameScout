@@ -103,7 +103,6 @@ function App() {
           setProgress(pct);
         });
         setScreenshots(frames);
-        // 保留原邏輯：不要預設全選，等待使用者主動勾選
       } else {
         // Last Frame Mode
         const targetTime = Math.max(0, video.duration - 0.015); 
@@ -265,11 +264,11 @@ function App() {
       {/* Navbar */}
       <nav className="flex-shrink-0 border-b border-gray-800/80 bg-[#030304] z-50">
         <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
+          <div className="flex items-center justify-between h-13 sm:h-14">
             <div className="flex items-center gap-3">
-              <div className="relative w-8 h-8 flex items-center justify-center">
+              <div className="relative w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center">
                  <div className="absolute inset-0 bg-indigo-500/20 blur-lg rounded-full"></div>
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-400 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-400 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10"/>
                     <line x1="14.31" y1="8" x2="20.05" y2="17.94"/>
                     <line x1="9.69" y1="8" x2="21.17" y2="8"/>
@@ -279,14 +278,14 @@ function App() {
                     <line x1="16.62" y1="12" x2="10.88" y2="21.94"/>
                   </svg>
               </div>
-              <span className="text-lg font-bold tracking-tight text-white">
+              <span className="text-base sm:text-lg font-bold tracking-tight text-white">
                 Frame<span className="text-indigo-400">Scout</span>
               </span>
             </div>
 
-            <div className="flex items-center gap-4 text-xs text-gray-400">
+            <div className="flex items-center gap-3 text-xs text-gray-400">
               {metadata && (
-                <div className="hidden sm:flex items-center gap-2 font-mono">
+                <div className="flex items-center gap-2 font-mono bg-gray-900/60 px-2.5 py-1 rounded-md border border-gray-800">
                   <span>{metadata.width}×{metadata.height}</span>
                   <span className="text-gray-600">/</span>
                   <span>{metadata.duration.toFixed(1)}s</span>
@@ -297,16 +296,17 @@ function App() {
         </div>
       </nav>
 
-      {/* Main Content Area - Split View */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      {/* Main Content Area - Split View (Responsive: Top Ribbon on <lg, Left Sidebar on lg:) */}
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         
-        {/* LEFT PANEL: Settings & Controls */}
-        <aside className="w-full lg:w-[380px] xl:w-[420px] flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-800 bg-[#08080a] z-10">
+        {/* TOP RIBBON (<lg) / LEFT SIDEBAR (lg:): Settings & Controls */}
+        <aside className="w-full lg:w-[380px] xl:w-[420px] flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-800 bg-[#08080a] z-10 max-h-[46vh] lg:max-h-full">
           
-          {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+          {/* Scrollable Content inside Ribbon / Sidebar */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar p-3.5 sm:p-4 lg:p-5">
             
-            <div className="mb-6 mt-1">
+            {/* Title - Visible on desktop, streamlined on narrow screens */}
+            <div className="mb-3 lg:mb-6 mt-0.5 hidden lg:block">
               <h1 className="text-xl font-bold text-white mb-1">
                 Extraction Studio
               </h1>
@@ -315,37 +315,9 @@ function App() {
               </p>
             </div>
 
-            {/* Mode Tab Switcher */}
-            <div className="flex p-1 bg-gray-900 rounded-lg mb-6 border border-gray-800">
-              <button
-                onClick={() => !isProcessing && handleModeChange('batch')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all duration-200 ${
-                  mode === 'batch' 
-                    ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700' 
-                    : 'text-gray-500 hover:text-gray-300'
-                } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
-                disabled={isProcessing}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-                Batch Extract
-              </button>
-              <button
-                onClick={() => !isProcessing && handleModeChange('last-frame')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 text-xs font-medium rounded-md transition-all duration-200 ${
-                  mode === 'last-frame' 
-                    ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700' 
-                    : 'text-gray-500 hover:text-gray-300'
-                } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
-                disabled={isProcessing}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 12-7-7v14z"/><path d="M3 5v14"/><path d="M7 5v14"/></svg>
-                Last Frame
-              </button>
-            </div>
-
             {/* Error Banner */}
             {errorMsg && (
-              <div className="bg-red-900/10 border border-red-900/30 text-red-300 px-4 py-3 rounded-lg mb-5 flex items-center gap-3 text-sm animate-in fade-in duration-300">
+              <div className="bg-red-900/10 border border-red-900/30 text-red-300 px-3 py-2 rounded-lg mb-3 flex items-center gap-2 text-xs animate-in fade-in duration-300">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
@@ -353,38 +325,61 @@ function App() {
               </div>
             )}
 
-            <div className="space-y-5">
-              {!file ? (
-                <VideoUploader onFileSelect={handleFileSelect} disabled={false} />
-              ) : (
-                <div className="bg-gray-900/50 rounded-xl p-4 border border-gray-800 shadow-sm">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="bg-gray-800 p-2 rounded-lg flex-shrink-0 border border-gray-700/50">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                        </svg>
-                      </div>
-                      <div className="min-w-0">
-                        <h3 className="font-medium text-gray-200 truncate text-xs">{file.name}</h3>
-                        <p className="text-[10px] text-gray-500 uppercase tracking-wide mt-0.5">
-                          {(file.size / (1024 * 1024)).toFixed(1)} MB • {metadata ? `${Math.floor(metadata.duration / 60)}:${Math.floor(metadata.duration % 60).toString().padStart(2, '0')}` : '...'}
-                        </p>
-                      </div>
-                    </div>
-                    <button 
+            {/* Narrow layout ribbon container */}
+            <div className="flex flex-col gap-3 lg:space-y-5">
+
+              {/* Top row in narrow screen: Mode switcher + Video Status */}
+              <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 sm:items-center lg:items-stretch">
+                {/* Mode Tab Switcher */}
+                <div className="flex p-1 bg-gray-900 rounded-lg border border-gray-800 w-full sm:w-64 lg:w-full flex-shrink-0">
+                  <button
+                    onClick={() => !isProcessing && handleModeChange('batch')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                      mode === 'batch' 
+                        ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700' 
+                        : 'text-gray-500 hover:text-gray-300'
+                    } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
+                    disabled={isProcessing}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    Batch Extract
+                  </button>
+                  <button
+                    onClick={() => !isProcessing && handleModeChange('last-frame')}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                      mode === 'last-frame' 
+                        ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700' 
+                        : 'text-gray-500 hover:text-gray-300'
+                    } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
+                    disabled={isProcessing}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 12-7-7v14z"/><path d="M3 5v14"/><path d="M7 5v14"/></svg>
+                    Last Frame
+                  </button>
+                </div>
+
+                {/* Video Info badge if loaded (compact in ribbon) */}
+                {file && (
+                  <div className="flex-1 min-w-0 flex items-center justify-between sm:justify-end lg:justify-between bg-gray-900/40 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs">
+                    <span className="text-gray-300 truncate max-w-[200px] sm:max-w-[260px] lg:max-w-none">{file.name}</span>
+                    <button
                       onClick={handleReset}
-                      className="text-gray-600 hover:text-red-400 transition-colors p-1.5 hover:bg-gray-800 rounded-md"
+                      className="text-gray-500 hover:text-red-400 p-1 ml-2 transition-colors"
                       title="Remove Video"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                       </svg>
                     </button>
                   </div>
+                )}
+              </div>
 
-                  <div className="w-full bg-gray-800 rounded-full h-1 mb-4 overflow-hidden">
+              {!file ? (
+                <VideoUploader onFileSelect={handleFileSelect} disabled={false} />
+              ) : (
+                <div className="flex flex-col gap-2.5">
+                  <div className="w-full bg-gray-800 rounded-full h-1 overflow-hidden">
                     <div className="bg-indigo-500 h-1 rounded-full" style={{width: '100%'}}></div>
                   </div>
 
@@ -392,7 +387,7 @@ function App() {
                     onClick={handleProcess}
                     disabled={isProcessing}
                     className={`
-                      w-full py-2.5 rounded-lg font-semibold text-sm shadow-lg shadow-indigo-500/10
+                      w-full py-2 lg:py-2.5 rounded-lg font-semibold text-xs sm:text-sm shadow-md shadow-indigo-500/10
                       flex items-center justify-center gap-2
                       transition-all duration-200 transform active:scale-[0.98]
                       ${isProcessing 
@@ -439,9 +434,9 @@ function App() {
             </div>
           </div>
 
-          {/* Sticky Footer: Download Action */}
+          {/* Desktop-only Sidebar Footer (lg: only) */}
           {screenshots.length > 0 && (
-            <div className="flex-shrink-0 p-4 border-t border-gray-800 bg-[#08080a]/90 backdrop-blur-md z-20">
+            <div className="hidden lg:block flex-shrink-0 p-4 border-t border-gray-800 bg-[#08080a]/90 backdrop-blur-md z-20">
                <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <h3 className="text-white font-medium text-sm truncate">
@@ -460,7 +455,7 @@ function App() {
                         <button
                           onClick={handleMergeCopy}
                           disabled={status === ProcessingStatus.MERGING || status === ProcessingStatus.ZIPPING}
-                          className={`flex-shrink-0 font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-xs border disabled:opacity-50 ${
+                          className={`flex-shrink-0 font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs border disabled:opacity-50 ${
                             isCopied 
                               ? 'bg-green-500/10 text-green-400 border-green-500/20' 
                               : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-indigo-500/20'
@@ -470,14 +465,14 @@ function App() {
                             <span className="animate-pulse">Merging...</span>
                           ) : isCopied ? (
                             <>
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                               Copied!
                             </>
                           ) : (
                             <>
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                               </svg>
@@ -488,13 +483,13 @@ function App() {
                         <button
                           onClick={handleMergeDownload}
                           disabled={status === ProcessingStatus.MERGING || status === ProcessingStatus.ZIPPING}
-                          className="flex-shrink-0 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 font-semibold px-4 py-2 rounded-lg transition-all flex items-center gap-2 text-xs disabled:opacity-50"
+                          className="flex-shrink-0 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-xs disabled:opacity-50"
                         >
                           {status === ProcessingStatus.MERGING ? (
                             <span className="animate-pulse">Merging...</span>
                           ) : (
                             <>
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <rect x="2" y="7" width="20" height="10" rx="2" />
                                 <line x1="8" y1="7" x2="8" y2="17" />
                                 <line x1="16" y1="7" x2="16" y2="17" />
@@ -508,13 +503,13 @@ function App() {
                     <button
                       onClick={handleDownload}
                       disabled={status === ProcessingStatus.ZIPPING || status === ProcessingStatus.MERGING}
-                      className="flex-shrink-0 bg-white text-gray-900 hover:bg-gray-100 font-semibold px-4 py-2 rounded-lg shadow-lg transition-all flex items-center gap-2 text-xs disabled:opacity-50"
+                      className="flex-shrink-0 bg-white text-gray-900 hover:bg-gray-100 font-semibold px-3.5 py-1.5 rounded-lg shadow-lg transition-all flex items-center gap-1.5 text-xs disabled:opacity-50"
                     >
                       {status === ProcessingStatus.ZIPPING ? (
                         <span className="animate-pulse">Archiving...</span>
                       ) : (
                         <>
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                           </svg>
                           {screenshots.length === 1 ? 'Download Image' : 'Download ZIP'}
@@ -527,8 +522,8 @@ function App() {
           )}
         </aside>
 
-        {/* RIGHT PANEL: Gallery (Primary Scroll) */}
-        <main className="flex-1 overflow-y-auto bg-[#030304] p-6 lg:p-8 custom-scrollbar relative">
+        {/* BOTTOM PANEL: Gallery (Primary Viewport on narrow screens) */}
+        <main className="flex-1 overflow-y-auto bg-[#030304] p-4 sm:p-6 lg:p-8 pb-20 lg:pb-8 custom-scrollbar relative">
           <div className="max-w-7xl mx-auto h-full">
             {screenshots.length > 0 ? (
                <Gallery 
@@ -542,20 +537,99 @@ function App() {
                  onOpenStitchModal={() => setIsStitchModalOpen(true)}
                />
             ) : (
-              <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-gray-800/50 rounded-2xl bg-gray-900/10">
-                <div className="w-16 h-16 rounded-full bg-gray-900 flex items-center justify-center mb-4 border border-gray-800">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="h-full min-h-[220px] flex flex-col items-center justify-center border-2 border-dashed border-gray-800/50 rounded-2xl bg-gray-900/10 p-6">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gray-900 flex items-center justify-center mb-3 sm:mb-4 border border-gray-800">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <p className="text-gray-500 font-medium">Waiting for content</p>
-                <p className="text-xs text-gray-600 mt-1">
+                <p className="text-gray-400 font-medium text-sm">Waiting for content</p>
+                <p className="text-xs text-gray-600 mt-1 text-center">
                   {mode === 'batch' ? 'Import a video to begin batch extraction' : 'Import a video to capture the last frame'}
                 </p>
               </div>
             )}
           </div>
         </main>
+
+        {/* Unified Bottom Sticky Bar for Narrow Screens (<lg only) */}
+        {screenshots.length > 0 && (
+          <div className="lg:hidden absolute bottom-0 left-0 right-0 p-3 border-t border-gray-800 bg-[#08080a]/95 backdrop-blur-md z-30 shadow-2xl">
+            <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+              <div className="min-w-0 flex items-baseline gap-1.5">
+                <span className="text-white font-medium text-xs font-mono">{screenshots.length} imgs</span>
+                {mode === 'batch' && selectedIds.size > 0 && (
+                  <span className="text-indigo-400 text-[11px] font-mono">({selectedIds.size} sel)</span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto custom-scrollbar py-0.5">
+                {screenshots.length >= 2 && (
+                  <>
+                    <button
+                      onClick={handleMergeCopy}
+                      disabled={status === ProcessingStatus.MERGING || status === ProcessingStatus.ZIPPING}
+                      className={`font-semibold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 text-xs border whitespace-nowrap disabled:opacity-50 ${
+                        isCopied 
+                          ? 'bg-green-500/10 text-green-400 border-green-500/20' 
+                          : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border-indigo-500/20'
+                      }`}
+                    >
+                      {status === ProcessingStatus.MERGING ? (
+                        <span className="animate-pulse">Merging...</span>
+                      ) : isCopied ? (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                          </svg>
+                          Copy Strip
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={handleMergeDownload}
+                      disabled={status === ProcessingStatus.MERGING || status === ProcessingStatus.ZIPPING}
+                      className="bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 font-semibold px-2.5 py-1.5 rounded-lg transition-all flex items-center gap-1 text-xs whitespace-nowrap disabled:opacity-50"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="10" rx="2" />
+                        <line x1="8" y1="7" x2="8" y2="17" />
+                        <line x1="16" y1="7" x2="16" y2="17" />
+                      </svg>
+                      Merge Strip
+                    </button>
+                  </>
+                )}
+
+                <button
+                  onClick={handleDownload}
+                  disabled={status === ProcessingStatus.ZIPPING || status === ProcessingStatus.MERGING}
+                  className="bg-white text-gray-900 hover:bg-gray-100 font-semibold px-3 py-1.5 rounded-lg shadow-md transition-all flex items-center gap-1.5 text-xs whitespace-nowrap disabled:opacity-50"
+                >
+                  {status === ProcessingStatus.ZIPPING ? (
+                    <span className="animate-pulse">Archiving...</span>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      {screenshots.length === 1 ? 'Download' : 'Download ZIP'}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
 
