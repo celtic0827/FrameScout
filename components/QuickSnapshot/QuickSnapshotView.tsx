@@ -26,6 +26,7 @@ interface QuickSnapshotViewProps {
   onDeselectAll: () => void;
   onOpenStitchModal: () => void;
   onSelectFile?: (file: File) => void;
+  onClear?: () => void;
 }
 
 const QuickSnapshotView: React.FC<QuickSnapshotViewProps> = ({
@@ -40,7 +41,8 @@ const QuickSnapshotView: React.FC<QuickSnapshotViewProps> = ({
   onSelectAll,
   onDeselectAll,
   onOpenStitchModal,
-  onSelectFile
+  onSelectFile,
+  onClear
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -75,6 +77,9 @@ const QuickSnapshotView: React.FC<QuickSnapshotViewProps> = ({
   useEffect(() => {
     if (!videoFile) {
       setVideoSrc(null);
+      setCurrentTime(0);
+      setDuration(0);
+      setIsPlaying(false);
       return;
     }
     const url = URL.createObjectURL(videoFile);
@@ -319,6 +324,7 @@ const QuickSnapshotView: React.FC<QuickSnapshotViewProps> = ({
             onToggleMute={() => setIsMuted((prev) => !prev)}
             onCapture={handleCapture}
             onSelectFile={onSelectFile}
+            onClear={onClear}
           />
         </div>
 

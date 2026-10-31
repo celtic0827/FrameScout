@@ -457,6 +457,7 @@ function App() {
             onDeselectAll={handleDeselectAllQuick}
             onOpenStitchModal={() => setIsStitchModalOpen(true)}
             onSelectFile={handleFileSelect}
+            onClear={handleReset}
           />
         </main>
       ) : (
