@@ -19,7 +19,6 @@ interface VideoPreviewColProps {
   onToggleMute: () => void;
   onCapture: () => void;
   onSelectFile?: (file: File) => void;
-  onClear?: () => void;
 }
 
 const PLAYBACK_RATES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -41,7 +40,6 @@ const VideoPreviewCol: React.FC<VideoPreviewColProps> = ({
   onToggleMute,
   onCapture,
   onSelectFile,
-  onClear,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -160,17 +158,19 @@ const VideoPreviewCol: React.FC<VideoPreviewColProps> = ({
           <span className="text-gray-400 text-[11px] truncate max-w-[150px] hidden sm:inline" title={videoFile.name}>
             {videoFile.name}
           </span>
-          {onClear && (
+          {onSelectFile && (
             <button
               type="button"
-              onClick={onClear}
-              className="text-[11px] px-2.5 py-1 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 border border-red-500/30 hover:border-red-500/50 transition-colors flex items-center gap-1.5 shadow-sm font-medium"
-              title="清除影片與截圖，回到待上傳狀態"
+              onClick={() => fileInputRef.current?.click()}
+              className="text-[11px] px-2 py-0.5 rounded bg-gray-800/80 hover:bg-gray-700 text-gray-300 hover:text-white border border-gray-700 transition-colors flex items-center gap-1"
+              title="Select another video"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              <span>清除</span>
+              <span>Change</span>
             </button>
           )}
         </div>
