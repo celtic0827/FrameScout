@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import JSZip from 'jszip';
 import saveAs from 'file-saver';
 import { ProcessingStatus, Screenshot, VideoMetadata } from './types';
@@ -7,6 +7,7 @@ import VideoUploader from './components/VideoUploader';
 import SettingsControls from './components/SettingsControls';
 import Gallery from './components/Gallery';
 import StitchModal from './components/StitchModal';
+import QuickSnapshotView from './components/QuickSnapshot/QuickSnapshotView';
 
 // Helper to load settings from LocalStorage
 const getSavedSetting = <T,>(key: string, defaultValue: T): T => {
@@ -21,7 +22,7 @@ const getSavedSetting = <T,>(key: string, defaultValue: T): T => {
   return defaultValue;
 };
 
-type AppMode = 'batch' | 'last-frame';
+type AppMode = 'batch' | 'last-frame' | 'quick-snapshot';
 
 function App() {
   const [file, setFile] = useState<File | null>(null);
@@ -39,6 +40,10 @@ function App() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isStitchModalOpen, setIsStitchModalOpen] = useState<boolean>(false);
 
+  // Quick Snapshot Specific State
+  const [quickSnapshots, setQuickSnapshots] = useState<Screenshot[]>([]);
+  const [quickSelectedIds, setQuickSelectedIds] = useState<Set<string>>(new Set());
+
   // Settings with LocalStorage persistence initialization
   const [count, setCount] = useState<number>(() => getSavedSetting('fs_count', 12));
   const [randomize, setRandomize] = useState<boolean>(() => getSavedSetting('fs_randomize', false));
@@ -51,12 +56,18 @@ function App() {
     localStorage.setItem('fs_scale', JSON.stringify(scale));
   }, [count, randomize, scale]);
 
-  // Clean up object URLs when components unmount or screenshots change
+  const screenshotsRef = useRef<Screenshot[]>([]);
+  screenshotsRef.current = screenshots;
+  const quickSnapshotsRef = useRef<Screenshot[]>([]);
+  quickSnapshotsRef.current = quickSnapshots;
+
+  // Clean up object URLs only when App unmounts
   useEffect(() => {
     return () => {
-      screenshots.forEach(s => URL.revokeObjectURL(s.url));
+      screenshotsRef.current.forEach(s => URL.revokeObjectURL(s.url));
+      quickSnapshotsRef.current.forEach(s => URL.revokeObjectURL(s.url));
     };
-  }, [screenshots]);
+  }, []);
 
   const handleFileSelect = async (selectedFile: File) => {
     setFile(selectedFile);
@@ -79,8 +90,10 @@ function App() {
   const handleModeChange = (newMode: AppMode) => {
     if (mode === newMode) return;
     setMode(newMode);
-    setScreenshots([]); // Clear results on mode switch to avoid confusion
-    setSelectedIds(new Set());
+    if ((mode === 'batch' && newMode === 'last-frame') || (mode === 'last-frame' && newMode === 'batch')) {
+      setScreenshots([]); // Clear results on batch/last-frame switch
+      setSelectedIds(new Set());
+    }
     setErrorMsg(null);
     setStatus(ProcessingStatus.IDLE);
   };
@@ -239,11 +252,55 @@ function App() {
     });
   }, []);
 
+  // Quick Snapshot Specific Handlers
+  const handleToggleQuickSelect = useCallback((id: string) => {
+    setQuickSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleSelectAllQuick = useCallback(() => {
+    setQuickSelectedIds(new Set(quickSnapshots.map(s => s.id)));
+  }, [quickSnapshots]);
+
+  const handleDeselectAllQuick = useCallback(() => {
+    setQuickSelectedIds(new Set());
+  }, []);
+
+  const handleAddQuickSnapshot = useCallback((snap: Screenshot) => {
+    setQuickSnapshots(prev => [snap, ...prev]);
+  }, []);
+
+  const handleDeleteQuickSnapshot = useCallback((id: string) => {
+    setQuickSnapshots(prev => {
+      const item = prev.find(s => s.id === id);
+      if (item) URL.revokeObjectURL(item.url);
+      return prev.filter(s => s.id !== id);
+    });
+    setQuickSelectedIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const handleClearAllQuickSnapshots = useCallback(() => {
+    quickSnapshots.forEach(s => URL.revokeObjectURL(s.url));
+    setQuickSnapshots([]);
+    setQuickSelectedIds(new Set());
+  }, [quickSnapshots]);
+
   const handleReset = () => {
     setFile(null);
     setMetadata(null);
     setScreenshots([]);
     setSelectedIds(new Set());
+    quickSnapshots.forEach(s => URL.revokeObjectURL(s.url));
+    setQuickSnapshots([]);
+    setQuickSelectedIds(new Set());
     setStatus(ProcessingStatus.IDLE);
     setErrorMsg(null);
     setProgress(0);
@@ -251,10 +308,13 @@ function App() {
 
   const isProcessing = status === ProcessingStatus.EXTRACTING || status === ProcessingStatus.ZIPPING || status === ProcessingStatus.LOADING_VIDEO;
 
-  // Selected screenshots for stitching modal
+  // Selected screenshots for stitching modal (dynamic per mode)
   const selectedScreenshotsList = useMemo(() => {
+    if (mode === 'quick-snapshot') {
+      return quickSnapshots.filter(s => quickSelectedIds.has(s.id));
+    }
     return screenshots.filter(s => selectedIds.has(s.id));
-  }, [screenshots, selectedIds]);
+  }, [mode, screenshots, selectedIds, quickSnapshots, quickSelectedIds]);
 
   const filePrefix = metadata ? metadata.filename.split('.')[0] : 'frame_scout';
 
@@ -263,9 +323,10 @@ function App() {
       
       {/* Navbar */}
       <nav className="flex-shrink-0 border-b border-gray-800/80 bg-[#030304] z-50">
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-13 sm:h-14">
-            <div className="flex items-center gap-3">
+        <div className="max-w-full mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-13 sm:h-14 gap-2">
+            {/* Logo */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <div className="relative w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center">
                  <div className="absolute inset-0 bg-indigo-500/20 blur-lg rounded-full"></div>
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-400 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -278,26 +339,121 @@ function App() {
                     <line x1="16.62" y1="12" x2="10.88" y2="21.94"/>
                   </svg>
               </div>
-              <span className="text-base sm:text-lg font-bold tracking-tight text-white">
+              <span className="text-base sm:text-lg font-bold tracking-tight text-white hidden xs:inline">
                 Frame<span className="text-indigo-400">Scout</span>
               </span>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-gray-400">
+            {/* Mode Tab Switcher */}
+            <div className="flex p-1 bg-gray-900/90 rounded-lg border border-gray-800 text-xs flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => !isProcessing && handleModeChange('batch')}
+                disabled={isProcessing}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 font-medium rounded-md transition-all ${
+                  mode === 'batch'
+                    ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700'
+                    : 'text-gray-400 hover:text-gray-200'
+                } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
+                title="Batch Extract multiple frames automatically"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/>
+                </svg>
+                <span className="hidden sm:inline">Batch Extract</span>
+                <span className="sm:hidden">Batch</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => !isProcessing && handleModeChange('last-frame')}
+                disabled={isProcessing}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 font-medium rounded-md transition-all ${
+                  mode === 'last-frame'
+                    ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700'
+                    : 'text-gray-400 hover:text-gray-200'
+                } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
+                title="Extract the final ending frame"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="m21 12-7-7v14z"/><path d="M3 5v14"/><path d="M7 5v14"/>
+                </svg>
+                <span className="hidden sm:inline">Last Frame</span>
+                <span className="sm:hidden">Last</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => !isProcessing && handleModeChange('quick-snapshot')}
+                disabled={isProcessing}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 font-medium rounded-md transition-all ${
+                  mode === 'quick-snapshot'
+                    ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-400/50'
+                    : 'text-gray-400 hover:text-gray-200'
+                } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
+                title="Interactive 3-column video player and timeline with S/C shortcuts"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+                  <circle cx="12" cy="13" r="3"/>
+                </svg>
+                <span className="hidden sm:inline">Quick Snapshot</span>
+                <span className="sm:hidden">Snapshot</span>
+                {quickSnapshots.length > 0 && (
+                  <span className="ml-0.5 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px] font-mono">
+                    {quickSnapshots.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Right: metadata & video controls */}
+            <div className="flex items-center gap-2 sm:gap-3 text-xs text-gray-400 flex-shrink-0">
               {metadata && (
-                <div className="flex items-center gap-2 font-mono bg-gray-900/60 px-2.5 py-1 rounded-md border border-gray-800">
+                <div className="hidden sm:flex items-center gap-2 font-mono bg-gray-900/60 px-2.5 py-1 rounded-md border border-gray-800">
                   <span>{metadata.width}×{metadata.height}</span>
                   <span className="text-gray-600">/</span>
                   <span>{metadata.duration.toFixed(1)}s</span>
                 </div>
+              )}
+              {file && (
+                <button
+                  type="button"
+                  onClick={handleReset}
+                  className="text-gray-400 hover:text-red-400 p-1.5 rounded-md hover:bg-gray-800 transition-colors"
+                  title="Remove Video"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
               )}
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Main Content Area - Split View (Responsive: Top Ribbon on <lg, Left Sidebar on lg:) */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+      {mode === 'quick-snapshot' ? (
+        <main className="flex-1 overflow-hidden relative">
+          <QuickSnapshotView
+            videoFile={file}
+            metadata={metadata}
+            snapshots={quickSnapshots}
+            onAddSnapshot={handleAddQuickSnapshot}
+            onDeleteSnapshot={handleDeleteQuickSnapshot}
+            onClearAllSnapshots={handleClearAllQuickSnapshots}
+            selectedIds={quickSelectedIds}
+            onToggleSelect={handleToggleQuickSelect}
+            onSelectAll={handleSelectAllQuick}
+            onDeselectAll={handleDeselectAllQuick}
+            onOpenStitchModal={() => setIsStitchModalOpen(true)}
+            onSelectFile={handleFileSelect}
+          />
+        </main>
+      ) : (
+        /* Main Content Area - Split View (Responsive: Top Ribbon on <lg, Left Sidebar on lg:) */
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         
         {/* TOP RIBBON (<lg) / LEFT SIDEBAR (lg:): Settings & Controls */}
         <aside className="w-full lg:w-[380px] xl:w-[420px] flex-shrink-0 flex flex-col border-b lg:border-b-0 lg:border-r border-gray-800 bg-[#08080a] z-10 max-h-[46vh] lg:max-h-full">
@@ -328,52 +484,21 @@ function App() {
             {/* Narrow layout ribbon container */}
             <div className="flex flex-col gap-3 lg:space-y-5">
 
-              {/* Top row in narrow screen: Mode switcher + Video Status */}
-              <div className="flex flex-col sm:flex-row lg:flex-col gap-2.5 sm:items-center lg:items-stretch">
-                {/* Mode Tab Switcher */}
-                <div className="flex p-1 bg-gray-900 rounded-lg border border-gray-800 w-full sm:w-64 lg:w-full flex-shrink-0">
+              {/* Video Info badge if loaded */}
+              {file && (
+                <div className="flex items-center justify-between bg-gray-900/40 border border-gray-800 rounded-lg px-3 py-2 text-xs">
+                  <span className="text-gray-300 truncate max-w-[240px] lg:max-w-none">{file.name}</span>
                   <button
-                    onClick={() => !isProcessing && handleModeChange('batch')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
-                      mode === 'batch' 
-                        ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700' 
-                        : 'text-gray-500 hover:text-gray-300'
-                    } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
-                    disabled={isProcessing}
+                    onClick={handleReset}
+                    className="text-gray-500 hover:text-red-400 p-1 ml-2 transition-colors"
+                    title="Remove Video"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-                    Batch Extract
-                  </button>
-                  <button
-                    onClick={() => !isProcessing && handleModeChange('last-frame')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
-                      mode === 'last-frame' 
-                        ? 'bg-gray-800 text-white shadow-sm ring-1 ring-gray-700' 
-                        : 'text-gray-500 hover:text-gray-300'
-                    } ${isProcessing ? 'cursor-not-allowed opacity-50' : ''}`}
-                    disabled={isProcessing}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21 12-7-7v14z"/><path d="M3 5v14"/><path d="M7 5v14"/></svg>
-                    Last Frame
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
                   </button>
                 </div>
-
-                {/* Video Info badge if loaded (compact in ribbon) */}
-                {file && (
-                  <div className="flex-1 min-w-0 flex items-center justify-between sm:justify-end lg:justify-between bg-gray-900/40 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs">
-                    <span className="text-gray-300 truncate max-w-[200px] sm:max-w-[260px] lg:max-w-none">{file.name}</span>
-                    <button
-                      onClick={handleReset}
-                      className="text-gray-500 hover:text-red-400 p-1 ml-2 transition-colors"
-                      title="Remove Video"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                )}
-              </div>
+              )}
 
               {!file ? (
                 <VideoUploader onFileSelect={handleFileSelect} disabled={false} />
@@ -631,7 +756,8 @@ function App() {
           </div>
         )}
 
-      </div>
+        </div>
+      )}
 
       {/* Frame Stitching Modal (Pure and isolated component) */}
       {isStitchModalOpen && (
