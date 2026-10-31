@@ -311,12 +311,20 @@ function App() {
   // Selected screenshots for stitching modal (dynamic per mode)
   const selectedScreenshotsList = useMemo(() => {
     if (mode === 'quick-snapshot') {
-      return quickSnapshots.filter(s => quickSelectedIds.has(s.id));
+      const selected = quickSnapshots.filter(s => quickSelectedIds.has(s.id));
+      const targetList = selected.length > 0 ? selected : quickSnapshots;
+      return [...targetList].sort((a, b) => a.timestamp - b.timestamp);
     }
-    return screenshots.filter(s => selectedIds.has(s.id));
+    const selected = screenshots.filter(s => selectedIds.has(s.id));
+    const targetList = selected.length > 0 ? selected : screenshots;
+    return [...targetList].sort((a, b) => a.timestamp - b.timestamp);
   }, [mode, screenshots, selectedIds, quickSnapshots, quickSelectedIds]);
 
-  const filePrefix = metadata ? metadata.filename.split('.')[0] : 'frame_scout';
+  const filePrefix = useMemo(() => {
+    if (file) return file.name.replace(/\.[^/.]+$/, '');
+    if (metadata) return metadata.filename.replace(/\.[^/.]+$/, '');
+    return 'frame_scout';
+  }, [file, metadata]);
 
   return (
     <div className="h-screen flex flex-col bg-[#050508] text-gray-200 font-sans selection:bg-indigo-500/30 selection:text-indigo-200 overflow-hidden">

@@ -8,6 +8,8 @@ interface SnapshotSettingsColProps {
   metadata: VideoMetadata | null;
   snapshotCount: number;
   onClearAll: () => void;
+  onOpenStitchModal?: () => void;
+  selectedCount?: number;
 }
 
 const SnapshotSettingsCol: React.FC<SnapshotSettingsColProps> = ({
@@ -15,7 +17,9 @@ const SnapshotSettingsCol: React.FC<SnapshotSettingsColProps> = ({
   onUpdateSettings,
   metadata,
   snapshotCount,
-  onClearAll
+  onClearAll,
+  onOpenStitchModal,
+  selectedCount = 0
 }) => {
   const scalePercent = settings.scale;
   const targetWidth = metadata ? Math.floor(metadata.width * (scalePercent / 100)) : null;
@@ -197,19 +201,34 @@ const SnapshotSettingsCol: React.FC<SnapshotSettingsColProps> = ({
 
       </div>
 
-      {/* Footer / Reset Action */}
+      {/* Footer / Action */}
       {snapshotCount > 0 && (
-        <div className="pt-3 mt-4 border-t border-gray-800/60 flex items-center justify-between">
-          <span className="text-gray-400 text-[11px]">
-            <strong className="text-white font-mono">{snapshotCount}</strong> snapshot{snapshotCount > 1 ? 's' : ''} captured
-          </span>
-          <button
-            type="button"
-            onClick={onClearAll}
-            className="text-red-400 hover:text-red-300 text-[11px] font-medium transition-colors hover:underline"
-          >
-            Clear All
-          </button>
+        <div className="pt-3 mt-4 border-t border-gray-800/60 space-y-2.5">
+          {snapshotCount >= 2 && onOpenStitchModal && (
+            <button
+              type="button"
+              onClick={onOpenStitchModal}
+              className="w-full py-2 px-3 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-medium text-xs transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+              </svg>
+              <span>{selectedCount && selectedCount >= 2 ? `Stitch Selected (${selectedCount})` : `Stitch All (${snapshotCount})`}</span>
+            </button>
+          )}
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="text-gray-400">
+              <strong className="text-white font-mono">{snapshotCount}</strong> snapshot{snapshotCount > 1 ? 's' : ''} captured
+            </span>
+            <button
+              type="button"
+              onClick={onClearAll}
+              className="text-red-400 hover:text-red-300 font-medium transition-colors hover:underline"
+            >
+              Clear All
+            </button>
+          </div>
         </div>
       )}
 

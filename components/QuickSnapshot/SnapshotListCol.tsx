@@ -127,17 +127,36 @@ const SnapshotListCol: React.FC<SnapshotListColProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5">
-              {selectedCount >= 2 && (
+              {totalCount >= 2 && (
                 <button
                   type="button"
                   onClick={onOpenStitchModal}
-                  className="px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-sm transition-colors flex items-center gap-1"
+                  disabled={selectedCount === 1}
+                  title={
+                    selectedCount === 1
+                      ? 'Select at least 2 frames to stitch'
+                      : selectedCount >= 2
+                      ? `Stitch ${selectedCount} selected snapshots`
+                      : `Stitch all ${totalCount} snapshots`
+                  }
+                  className={`px-2 py-1 rounded font-medium shadow-sm transition-colors flex items-center gap-1 ${
+                    selectedCount === 1
+                      ? 'bg-gray-800 text-gray-500 border border-gray-700/50 cursor-not-allowed opacity-60'
+                      : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20'
+                  }`}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="3" width="18" height="18" rx="2" />
                     <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
                   </svg>
-                  Stitch ({selectedCount})
+                  <span>
+                    {selectedCount >= 2
+                      ? `Stitch (${selectedCount})`
+                      : selectedCount === 1
+                      ? 'Stitch (min 2)'
+                      : `Stitch (${totalCount})`
+                    }
+                  </span>
                 </button>
               )}
 

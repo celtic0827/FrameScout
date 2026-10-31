@@ -295,6 +295,8 @@ const QuickSnapshotView: React.FC<QuickSnapshotViewProps> = ({
             metadata={metadata}
             snapshotCount={snapshots.length}
             onClearAll={onClearAllSnapshots}
+            onOpenStitchModal={onOpenStitchModal}
+            selectedCount={selectedIds.size}
           />
         </div>
 
